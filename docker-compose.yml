@@ -54,8 +54,8 @@ services:
 
   redis:
     image: library/redis:7.0-alpine
-    ports:
-      - 16379:6379   # custom port
+    # ports:
+    #   - 16379:6379   # custom port
     restart: unless-stopped
     networks:
       - saleor-backend-tier
