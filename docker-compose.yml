@@ -1,8 +1,10 @@
+version: "3.9"
+
 services:
   api:
     image: ghcr.io/saleor/saleor:3.21
     ports:
-      - 8000:8000
+      - 18000:8000   # custom port
     restart: unless-stopped
     networks:
       - saleor-backend-tier
@@ -13,25 +15,32 @@ services:
       - redis
       - jaeger
     volumes:
-      # shared volume between worker and api for media
       - saleor-media:/app/media
-    env_file:
-      - common.env
-      - backend.env
     environment:
-      - DASHBOARD_URL=http://localhost:9000/
-      - ALLOWED_HOSTS=localhost,api
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:19000/}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,api}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:16379/1}
+      DATABASE_URL: ${DATABASE_URL:-postgres://saleor:saleor@db:15432/saleor}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@example.com}
+      EMAIL_URL: ${EMAIL_URL:-smtp://mailpit:11025}
+      SECRET_KEY: ${SECRET_KEY:-changeme}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-saleor}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:14317}
+      DEFAULT_CHANNEL_SLUG: ${DEFAULT_CHANNEL_SLUG:-default-channel}
+      HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS: ${HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS:-True}
+      HTTP_IP_FILTER_ENABLED: ${HTTP_IP_FILTER_ENABLED:-True}
 
   dashboard:
     image: ghcr.io/saleor/saleor-dashboard:latest
     ports:
-      - 9000:80
+      - 19000:80   # custom port
     restart: unless-stopped
 
   db:
     image: library/postgres:15-alpine
     ports:
-      - 5432:5432
+      - 15432:5432   # custom port
     restart: unless-stopped
     networks:
       - saleor-backend-tier
@@ -39,13 +48,14 @@ services:
       - saleor-db:/var/lib/postgresql/data
       - ./replica_user.sql:/docker-entrypoint-initdb.d/replica_user.sql:ro,z
     environment:
-      - POSTGRES_USER=saleor
-      - POSTGRES_PASSWORD=saleor
+      POSTGRES_USER: ${POSTGRES_USER:-saleor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saleor}
+      POSTGRES_DB: ${POSTGRES_DB:-saleor}
 
   redis:
     image: library/redis:7.0-alpine
     ports:
-      - 6379:6379
+      - 16379:6379   # custom port
     restart: unless-stopped
     networks:
       - saleor-backend-tier
@@ -58,22 +68,30 @@ services:
     restart: unless-stopped
     networks:
       - saleor-backend-tier
-    env_file:
-      - common.env
-      - backend.env
     depends_on:
       - redis
       - mailpit
     volumes:
-      # shared volume between worker and api for media
       - saleor-media:/app/media
+    environment:
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:16379/1}
+      DATABASE_URL: ${DATABASE_URL:-postgres://saleor:saleor@db:15432/saleor}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@example.com}
+      EMAIL_URL: ${EMAIL_URL:-smtp://mailpit:11025}
+      SECRET_KEY: ${SECRET_KEY:-changeme}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-saleor}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:14317}
+      DEFAULT_CHANNEL_SLUG: ${DEFAULT_CHANNEL_SLUG:-default-channel}
+      HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS: ${HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS:-True}
+      HTTP_IP_FILTER_ENABLED: ${HTTP_IP_FILTER_ENABLED:-True}
 
   jaeger:
     image: jaegertracing/jaeger
     ports:
-      - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
+      - "16687:16686"   # UI custom port
+      - "14317:4317"    # OTLP gRPC custom port
+      - "14318:4318"    # OTLP HTTP custom port
     restart: unless-stopped
     networks:
       - saleor-backend-tier
@@ -84,8 +102,8 @@ services:
   mailpit:
     image: axllent/mailpit
     ports:
-      - 1025:1025 # smtp server
-      - 8025:8025 # web ui. Visit http://localhost:8025/ to check emails
+      - 11025:1025   # smtp custom port
+      - 18025:8025   # web UI custom port
     restart: unless-stopped
     networks:
       - saleor-backend-tier
